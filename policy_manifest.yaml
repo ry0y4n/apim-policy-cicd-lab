@@ -1,0 +1,5 @@
+policies:
+  sample-api:
+    apiPolicyPath: "policies/sample-api/api.xml"
+    operations:
+      get-data: "policies/sample-api/operations/get-data.xml"
