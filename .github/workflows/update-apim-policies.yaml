@@ -24,7 +24,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Update APIM Policies
-        uses: Azure/apim-policy-update@v0.1.0
+        uses: Azure/apim-policy-update@v1.0.0
         id: update-apim-policy
         with:
           apim_name: ${{ secrets.AZURE_APIM_NAME }}
