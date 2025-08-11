@@ -42,10 +42,9 @@ This is a complete lab repository demonstrating Infrastructure as Code (IaC) dep
 
 1. **Login to Azure CLI:**
 
-````bash
    ```bash
    az login
-````
+   ```
 
 2. **Review and customize parameters** in `infra/main.parameters.json`:
 
