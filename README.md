@@ -107,7 +107,7 @@ By default, the workflow uses `policy_manifest.yaml` to map policies to APIs. Yo
 
 ### Step 4: Test Policy Deployment
 
-1. **(Optional) Make a policy change** - edit files in `policies/sample-api/`:
+1. **Make a policy change** - edit files in `policies/sample-api/`:
 
    - `api.xml`: Contains API-level policy (adds X-API-Version header)
    - `operations/get-data.xml`: Contains operation-level policy (adds request tracking)
