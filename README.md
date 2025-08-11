@@ -1,81 +1,177 @@
-# dev-apim-policy — Sample using Azure/apim-policy-update
+# Azure API Management Policy Management Lab
 
-This repository is a sample showing how to apply Azure API Management (APIM) policies via GitHub Actions using the official action "Azure/apim-policy-update". The source of truth is `policy_manifest.yaml` plus the XML policies under `policies/`. On push to `main` (or manual dispatch), the workflow applies the policies to APIM.
+This is a complete lab repository demonstrating Infrastructure as Code (IaC) deployment of Azure API Management and automated policy management using GitHub Actions with the [`Azure/apim-policy-update`](https://github.com/marketplace/actions/azure-api-management-policy-update) action.
 
-## Repository layout
+**What you'll learn:**
 
-- `policy_manifest.yaml`: Manifest describing which API/operations get which policy files
-- `policies/`:
-  - `sample-api/api.xml`: API-level policy (example)
-  - `sample-api/operations/get-data.xml`: Operation-level policy (example)
-- `.github/workflows/update-apim-policies.yaml`: Workflow that applies policies to APIM
+- Deploy APIM infrastructure using Bicep templates
+- Manage APIM policies as code with version control
+- Automate policy deployment via GitHub Actions
 
-## Actions used
+## Repository Structure
 
-- Auth: `azure/login@v2`
-- Apply policies: `Azure/apim-policy-update@v1.0.0`
-
-## Prerequisites (in Azure)
-
-1. An APIM instance (note the resource group name and APIM name)
-2. An App Registration (service principal) configured with GitHub OIDC federated credentials
-3. Appropriate role assignment for the service principal to write to APIM
-   - e.g., at the Resource Group or APIM resource scope: "Contributor" or "API Management Service Contributor"
-
-## GitHub Secrets
-
-Add these repository-level secrets under Settings > Secrets and variables > Actions:
-
-- `AZURE_CLIENT_ID`: Client ID of the App Registration with federated credentials
-- `AZURE_TENANT_ID`: Azure AD tenant ID
-- `AZURE_SUBSCRIPTION_ID`: Subscription ID
-- `AZURE_RESOURCE_GROUP`: Resource Group name
-- `AZURE_APIM_NAME`: APIM name
-
-## How the workflow runs
-
-`.github/workflows/update-apim-policies.yaml` triggers on:
-
-- Push to `main` affecting `policies/**` or `policy_manifest.yaml`
-- Manual dispatch (`workflow_dispatch`)
-
-Steps:
-
-1. Checkout repository
-2. Login to Azure using `azure/login@v2` (OIDC)
-3. Apply policies based on `policy_manifest.yaml` using `Azure/apim-policy-update@v1.0.0`
-4. Output the last ETag (for debugging)
-
-## Example policy_manifest.yaml
-
-Refer to the action’s docs for the full schema. The snippet below matches this sample layout.
-
-```yaml
-apis:
-  - name: sample-api
-    policy: policies/sample-api/api.xml
-    operations:
-      - name: get-data
-        policy: policies/sample-api/operations/get-data.xml
+```
+├── infra/                                    # Infrastructure as Code
+│   ├── main.bicep                           # Main Bicep template (subscription-scoped)
+│   ├── main.parameters.json                 # Deployment parameters
+│   ├── deploy.sh                            # Deployment script
+│   └── modules/
+│       └── apim.bicep                       # APIM resource module
+├── policies/                                # Policy definitions
+│   └── sample-api/
+│       ├── api.xml                         # API-level policy
+│       └── operations/
+│           └── get-data.xml                # Operation-level policy
+├── policy_manifest.yaml                     # Policy mapping manifest
+└── .github/workflows/
+    └── update-apim-policies.yaml            # Policy deployment workflow
 ```
 
-- Provide API-level policy (`api.xml`) and per-operation policies (`operations/*.xml`).
-- XML must conform to the APIM policy schema.
+## Lab Setup Guide
 
-## Usage
+### Step 0: Setup Code
 
-1. Edit the XML under `policies/` and update `policy_manifest.yaml` as needed
-2. Push to `main` to trigger automatic apply to APIM
-3. Or run it manually from the Actions tab ("Run workflow")
+1. **Fork this repository**
+2. **Clone your forked repository**
+   ```bash
+   git clone https://github.com/<your-username>/apim-policy-cicd-lab.git
+   cd apim-policy-cicd-lab
+   ```
+
+### Step 1: Deploy APIM Infrastructure
+
+1. **Login to Azure CLI:**
+
+````bash
+   ```bash
+   az login
+````
+
+2. **Review and customize parameters** in `infra/main.parameters.json`:
+
+   - `resourceGroupName`: Your resource group name
+   - `apiManagementServiceName`: Your APIM service name
+   - `location`: Azure region
+   - `publisherName` and `publisherEmail`: APIM publisher details
+
+3. **Deploy the infrastructure:**
+
+   ```bash
+   cd infra
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+
+   This creates:
+
+   - Resource Group with unique suffix
+   - APIM service instance (default: BasicV2 SKU)
+   - API (`sample-api`) with operation (`get-data`)
+
+4. **Note the deployment outputs** - you'll need the actual resource group and APIM service names for GitHub secrets.
+
+### Step 2: Configure GitHub Actions
+
+1. **Create an App Registration** for GitHub OIDC:
+
+   ```bash
+   # Create app registration
+   az ad app create --display-name "SP-GitHub-APIM-Policy-Lab"
+
+   # Create service principal
+   az ad sp create --id <app-id-from-above>
+
+   # Configure federated credentials for your GitHub repo
+   az ad app federated-credential create \
+     --id <app-id> \
+     --parameters '{"name":"federated-cred-gha-update-policy","issuer":"https://token.actions.githubusercontent.com","subject":"repo:<OWNER>/<REPOSITORY>:ref:refs/heads/main","audiences":["api://AzureADTokenExchange"]}'
+   ```
+
+2. **Assign RBAC permissions** to the service principal:
+
+   ```bash
+   # Assign "Contributor" role to service principal
+   az role assignment create --role contributor --assignee <app-id> --scope //subscriptions/<your-subscription-id>
+   ```
+
+3. **Configure GitHub repository secrets** (Settings → Secrets and variables → Actions):
+   - `AZURE_CLIENT_ID`: App registration client ID
+   - `AZURE_TENANT_ID`: Your Azure AD tenant ID
+   - `AZURE_SUBSCRIPTION_ID`: Your subscription ID
+   - `AZURE_RESOURCE_GROUP`: Deployed resource group name (with unique suffix)
+   - `AZURE_APIM_NAME`: Deployed APIM service name (with unique suffix)
+
+### (Optional) Update Policy & Manifest
+
+By default, the workflow uses `policy_manifest.yaml` to map policies to APIs. You can customize this file to add more APIs or operations.
+
+### Step 4: Test Policy Deployment
+
+1. **(Optional) Make a policy change** - edit files in `policies/sample-api/`:
+
+   - `api.xml`: Contains API-level policy (adds X-API-Version header)
+   - `operations/get-data.xml`: Contains operation-level policy (adds request tracking)
+
+2. **Commit and push** changes to trigger the workflow:
+
+   ```bash
+   git add .
+   git commit -m "Update APIM policies"
+   git push origin main
+   ```
+
+3. **Monitor the workflow** in GitHub Actions tab - it will:
+   - Login to Azure using OIDC
+   - Apply policies using `Azure/apim-policy-update@v1.0.0`
+   - Output ETags for debugging
+
+## What's Deployed
+
+The infrastructure creates:
+
+- **APIM Service**: BasicV2 SKU in Japan East region
+- **Sample API**:
+
+  - Path: `/sample-api`
+  - Backend: `https://httpbin.org`
+  - Operation: `GET /get-data` → calls `https://httpbin.org/get-data`
+
+- **Policies**:
+  All policies are deployed with default settings.
+
+## Workflow Details
+
+The GitHub Actions workflow (`.github/workflows/update-apim-policies.yaml`) triggers on:
+
+- **push to main** affecting `policies/**` or `policy_manifest.yaml`
+- **workflow dispatch** via Actions tab
+
+**Key features:**
+
+- OIDC authentication (no stored secrets)
+- Targeted policy updates only
+- ETag output for change tracking
+- Fail-fast on errors
 
 ## Troubleshooting
 
-- Authorization errors: Check service principal role assignment and scope (RG/APIM)
-- Name mismatch: Ensure `AZURE_APIM_NAME` and `AZURE_RESOURCE_GROUP` match your environment
-- XML validation: Verify your APIM policy XML conforms to the schema (no unsupported tags/attributes)
+**Common issues:**
 
-## Customization tips
+- **403 Forbidden**: Check service principal role assignment and scope
+- **Resource not found**: Verify `AZURE_APIM_NAME` and `AZURE_RESOURCE_GROUP` match deployed names (including unique suffixes)
+- **Policy validation errors**: Ensure XML follows APIM policy schema
+- **OIDC auth failures**: Verify federated credentials subject matches `repo:owner/repo:ref:refs/heads/main`
 
-- Change trigger paths/branch or the `policy_manifest_path` in the workflow as needed
-- Keep secrets out of YAML; use GitHub Secrets
-- Consider extending scope to manage product/global policies in addition to API/operation policies (if needed)
+**Debugging tips:**
+
+- Check workflow logs in GitHub Actions
+- Verify resource names in Azure portal match GitHub secrets
+- Test policies manually in Azure portal first
+
+## Cleanup
+
+To clean up all resources:
+
+```bash
+az group delete --name <your-resource-group-name> --yes --no-wait
+```
