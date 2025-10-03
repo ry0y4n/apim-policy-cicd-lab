@@ -2,6 +2,10 @@
     <inbound>
         <base />
         <set-backend-service id="apim-generated-policy" backend-id="gpt-4o-ai-endpoint" />
+        <ip-filter action="allow">
+            <address>13.66.201.169</address>
+            <address-range from="13.66.140.128" to="13.66.140.143" />
+        </ip-filter>
     </inbound>
     <backend>
         <base />
