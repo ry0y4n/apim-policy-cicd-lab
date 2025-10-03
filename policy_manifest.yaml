@@ -3,3 +3,5 @@ policies:
     apiPolicyPath: "policies/sample-api/api.xml"
     operations:
       get-data: "policies/sample-api/operations/get-data.xml"
+  gpt-4o:
+    apiPolicyPath: "policies/gpt-4o/api.xml"
